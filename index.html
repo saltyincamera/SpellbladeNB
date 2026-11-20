@@ -25928,20 +25928,24 @@ function createHydra(scale){
     }
     function summary(b) { var out = []; if (b && b.slots) Object.keys(b.slots).forEach(function (n) { var d = b.slots[n]; if (d) out.push((d.name || 'นักผจญภัย') + ' Lv.' + (d.lv || 1)); }); return out.join(' · ') || 'ไม่มีตัวละคร'; }
     function push(force) {
-      if (!S.on || !id() || !key() || S.pushing || S.conflict) return Promise.resolve(false);
+      if (!S.on || !id() || !key() || S.pushing || S.lock) return Promise.resolve(false);
       S.pushing = true;
       var body = { action: 'save', id: id(), key: key(), data: JSON.stringify(bundle()), base: force ? 0 : base() };
       return call(body).then(function (r) {
         if (r && r.ok) { ls('nb-base', r.updatedAt); ls('nb-dirty', '0'); return true; }
         if (r && r.err === 'stale' && mine(r.data)) { S.pushing = false; return push(true); }
-        if (r && r.err === 'stale') { S.conflict = r; if (typeof notify === 'function' && !LOBBY) notify('ID นี้มีเซฟใหม่กว่าจากอีกเครื่อง · กลับหน้าเลือกตัวละครเพื่อเลือกว่าจะใช้เซฟไหน'); }
+        // another device saved since: the server copy wins. Stop sending, go back to the lobby, which loads the server copy
+        if (r && r.err === 'stale') {
+          S.lock = true;
+          if (!LOBBY) { if (typeof notify === 'function') notify('ID นี้มีเซฟใหม่จากเครื่องอื่น · กำลังโหลดข้อมูลจากเซิร์ฟเวอร์'); setTimeout(function () { try { sessionStorage.removeItem('ro-active'); } catch (e) {} location.reload(); }, 1800); }
+        }
         return false;
       }).catch(function () { return false; }).finally(function () { S.pushing = false; });
     }
-    function dirty() { if (!id()) return; ls('nb-dirty', '1'); if (!S.on || S.timer) return; S.timer = setTimeout(function () { S.timer = null; push(); }, 6000); }
+    function dirty() { if (!id() || S.lock) return; ls('nb-dirty', '1'); if (!S.on || S.timer) return; S.timer = setTimeout(function () { S.timer = null; push(); }, 6000); }
     // leaving the page: hand the latest save to the server without waiting for an answer
     window.addEventListener('pagehide', function () {
-      if (!S.on || !id() || !isDirty() || S.conflict || !navigator.sendBeacon) return;
+      if (!S.on || !id() || !isDirty() || S.lock || !navigator.sendBeacon) return;
       try { navigator.sendBeacon(NB_URL, new Blob([JSON.stringify({ action: 'save', id: id(), key: key(), data: JSON.stringify(bundle()), base: base() })], { type: 'text/plain;charset=utf-8' })); } catch (e) {}
     });
     var ERR = { bad_id: 'ID ใช้ได้เฉพาะ A-Z, 0-9 ยาว 3–16 ตัว', bad_key: 'รหัสเซฟต้องเป็น A-Z, 0-9 ยาว 6–20 ตัว', id_taken: 'ID นี้มีคนใช้แล้ว ลองชื่ออื่น', not_found: 'ไม่พบ ID นี้', bad_login: 'ID หรือรหัสเซฟไม่ถูกต้อง', too_big: 'เซฟใหญ่เกินไป', busy: 'เซิร์ฟเวอร์ไม่ว่าง ลองใหม่อีกครั้ง', bad_action: 'เซิร์ฟเวอร์ยังไม่รองรับคำสั่งนี้ (ต้องอัปเดต Code.gs)' };
@@ -25991,19 +25995,6 @@ function createHydra(scale){
       });
       setTimeout(function () { idIn.focus(); }, 40);
     }
-    function conflictView(card, done) {
-      var r = S.conflict, srv = null; try { srv = JSON.parse(r.data || 'null'); } catch (e) {}
-      var when = new Date(+r.updatedAt), ts = when.getDate() + '/' + (when.getMonth() + 1) + ' ' + ('0' + when.getHours()).slice(-2) + ':' + ('0' + when.getMinutes()).slice(-2);
-      head(card, 'ID ' + id() + ' มีเซฟใหม่กว่าจากอีกเครื่อง');
-      card.appendChild(el('div', 'nb-note', 'บนเซิร์ฟเวอร์ (บันทึก ' + ts + '): ' + summary(srv)));
-      card.appendChild(el('div', 'nb-note', 'ในเครื่องนี้: ' + summary(bundle())));
-      card.appendChild(el('div', 'lb-foot', 'เลือกว่าจะใช้เซฟไหน อีกฝั่งจะถูกทับ'));
-      var bx = el('div', 'nb-col'); card.appendChild(bx);
-      var a = btn('ใช้เซฟจากเซิร์ฟเวอร์ (แนะนำ)', 'lb-go'), b = btn('ใช้เซฟในเครื่องนี้ทับ');
-      a.addEventListener('click', function () { apply(r.data, r.updatedAt); S.conflict = null; done(); });
-      b.addEventListener('click', function () { S.conflict = null; b.disabled = true; push(true).then(function () { done(); }); });
-      bx.appendChild(a); bx.appendChild(b);
-    }
     // what the lobby shows first: the account page, a conflict to settle, or straight to the slots
     function gate(card, slotsView) {
       card.innerHTML = ''; card.appendChild(el('div', 'lb-sub', 'กำลังเชื่อมต่อ...'));
@@ -26012,7 +26003,7 @@ function createHydra(scale){
         if (!id()) { if (ls('nb-offline') === '1') return slotsView(); return accountView(card, slotsView); }
         call({ action: 'login', id: id(), key: key() }).then(function (r) {
           if (!r || !r.ok) { if (r && (r.err === 'bad_login' || r.err === 'not_found')) { ls('nb-id', null); ls('nb-key', null); return accountView(card, slotsView); } return slotsView(); }
-          if (+r.updatedAt > base()) { if (isDirty() && mine(r.data)) { push(true); } else if (isDirty()) { S.conflict = r; return conflictView(card, slotsView); } else apply(r.data, r.updatedAt); }
+          if (+r.updatedAt > base()) { if (isDirty() && mine(r.data)) push(true); else apply(r.data, r.updatedAt); }   // the server copy is the one that counts; only this browser's own unanswered save goes back up
           else if (isDirty()) push();
           slotsView();
         }, function () { slotsView(); });
