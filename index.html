@@ -25974,11 +25974,10 @@ function createHydra(scale){
       if (!mode) {
         head(card, 'เข้าสู่ระบบเพื่อเล่นได้ทุกเครื่อง ตัวละครเซฟไว้บนเซิร์ฟเวอร์');
         var box = el('div', 'nb-col'); card.appendChild(box);
-        var c = btn('สร้าง ID ใหม่', 'lb-go'), l = btn('Login ด้วย ID เดิม'), o = btn('เล่นโดยไม่ใช้ ID');
+        var c = btn('สร้าง ID ใหม่', 'lb-go'), l = btn('Login ด้วย ID เดิม');
         c.addEventListener('click', function () { accountView(card, done, 'create'); }); l.addEventListener('click', function () { accountView(card, done, 'login'); });
-        o.addEventListener('click', function () { ls('nb-offline', '1'); done(); });
-        box.appendChild(c); box.appendChild(l); box.appendChild(o);
-        card.appendChild(el('div', 'lb-foot', 'เล่นโดยไม่ใช้ ID: ตัวละครเซฟไว้ในเครื่องนี้เท่านั้น สร้าง ID ทีหลังได้ ตัวละครในเครื่องจะถูกย้ายขึ้นเซิร์ฟเวอร์ให้'));
+        box.appendChild(c); box.appendChild(l);
+        if (hasLocal()) card.appendChild(el('div', 'lb-foot', 'ตัวละครที่เล่นไว้ในเครื่องนี้ จะถูกย้ายขึ้น ID ที่สร้างใหม่ให้'));
         return;
       }
       head(card, mode === 'create' ? 'สร้าง ID ใหม่' : 'Login ด้วย ID เดิม');
@@ -26015,7 +26014,7 @@ function createHydra(scale){
       card.innerHTML = ''; card.appendChild(el('div', 'lb-sub', 'กำลังเชื่อมต่อ...'));
       probe().then(function (on) {
         if (!on) return slotsView();
-        if (!id()) { if (ls('nb-offline') === '1') return slotsView(); return accountView(card, slotsView); }
+        if (!id()) return accountView(card, slotsView);
         call({ action: 'login', id: id(), key: key() }).then(function (r) {
           if (r && r.err === 'in_use') return inUseView(card, slotsView);
           if (!r || !r.ok) { if (r && (r.err === 'bad_login' || r.err === 'not_found')) { ls('nb-id', null); ls('nb-key', null); return accountView(card, slotsView); } return slotsView(); }
