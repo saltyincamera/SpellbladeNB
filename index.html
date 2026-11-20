@@ -747,6 +747,16 @@ dt { color: var(--ih-brass) !important; } dd { color: var(--ih-moon) !important;
 .tf-st b.bf { border-style: double; border-width: 3px; background: rgba(60, 44, 10, .82); }
 .tf-st b .ico { width: 17px; height: 17px; vertical-align: 0; }
 .tf-st b i { position: absolute; right: -6px; bottom: -6px; font: 600 10px/1 sans-serif; font-style: normal; color: #fff; background: rgba(0, 0, 0, .85); border-radius: 3px; padding: 1px 3px; }
+#giftPop { position: fixed; inset: 0; z-index: 8500; display: flex; align-items: center; justify-content: center; background: rgba(8, 6, 4, .45); padding: 16px; }
+#giftPop .gp-card { width: min(400px, 100%); text-align: center; padding: 22px 22px 18px; background: rgba(26, 20, 16, .94); color: #f1e6cf; border: 3px double #c9a45c; border-radius: 24px 3px 24px 3px; box-shadow: inset 0 0 0 1px #000, 0 10px 30px rgba(0, 0, 0, .65); animation: gpIn .45s cubic-bezier(.2, 1.4, .4, 1); }
+#giftPop .gp-eye { font-size: 13px; color: #e0b75c; }
+#giftPop .gp-title { font: 700 24px Georgia, 'Times New Roman', serif; color: #ffd66b; margin: 6px 0 2px; text-wrap: balance; }
+#giftPop .gp-item { font-size: 17px; font-weight: 600; margin: 10px 0 6px; color: #fff3d6; }
+#giftPop .gp-body { font-size: 14px; line-height: 1.6; color: #cdbf9f; margin-bottom: 16px; }
+#giftPop .gp-ok { min-width: 150px; }
+#giftPop .gp-rays { width: 64px; height: 64px; margin: 4px auto 0; border-radius: 50%; background: radial-gradient(circle, #ffe9a8 0 22%, rgba(255, 214, 107, .55) 23% 40%, rgba(255, 214, 107, 0) 70%); animation: gpGlow 1.6s ease-in-out infinite; }
+@keyframes gpIn { from { transform: scale(.7); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+@keyframes gpGlow { 50% { transform: scale(1.15); opacity: .8; } }
 </style>
 
 <div class="game" id="game">
@@ -10452,12 +10462,29 @@ function fSurfX(m, s, y, z) { var P = m.geometry.attributes.position, best = 0, 
       u.gem.rotation.y = t * 2; u.aura.material.opacity = .06 + Math.sin(t * 2.5) * .025; u.head.rotation.y = moving ? 0 : Math.sin(t * .6) * .3;
     }
   }
+  // big congratulations card for level gifts (Lv.5 pet, Lv.10 horse); several at once wait in line
+  var GIFTQ = [];
+  function giftPop(title, item, body) {
+    GIFTQ.push([title, item, body]); if (GIFTQ.length === 1) giftShow();
+  }
+  function giftShow() {
+    var g = GIFTQ[0]; if (!g) return;
+    var w = document.createElement('div'); w.id = 'giftPop'; w.setAttribute('role', 'dialog'); w.setAttribute('aria-modal', 'true');
+    var c = document.createElement('div'); c.className = 'gp-card'; w.appendChild(c);
+    [['gp-rays', ''], ['gp-eye', 'ของขวัญเลเวล'], ['gp-title', g[0]], ['gp-item', g[1]], ['gp-body', g[2]]].forEach(function (a) { var d = document.createElement('div'); d.className = a[0]; d.textContent = a[1]; c.appendChild(d); });
+    var b = document.createElement('button'); b.type = 'button'; b.className = 'btn lb-go gp-ok'; b.textContent = 'รับของขวัญ'; c.appendChild(b);
+    function close() { w.remove(); document.removeEventListener('keydown', key, true); GIFTQ.shift(); if (GIFTQ.length) setTimeout(giftShow, 250); }
+    function key(e) { if (e.key === 'Enter' || e.key === 'Escape' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); close(); } }
+    b.addEventListener('click', close); document.addEventListener('keydown', key, true);
+    document.body.appendChild(w); setTimeout(function () { b.focus(); }, 50);
+  }
   // reaching Lv.5 gives a little slime, once
   function petGift() {
     var S = petState(); if (S.gift5 || (GS.lv || 1) < 5) return;
     S.gift5 = 1; S.own.p_slime = 1; var p = PET_BY.p_slime;
     if (!S.on) { S.on = 'p_slime'; petSpawn(); if (PET) { PET.x = player.x + .8; PET.z = player.z + .6; petPuff(PET.x, heightAt(PET.x, PET.z) + .3, PET.z, ['#8ac8ff', '#e0f2ff', '#ffffff'], 12, .002); } }
     notify('ของขวัญถึง Lv.5! ได้สัตว์เลี้ยง ' + p.name + ' · มันจะเด้งตามไปเก็บของให้ (ซื้อตัวอื่นได้ที่ร้านสัตว์เลี้ยงป้าบุญมีในหมู่บ้าน)');
+    giftPop('ยินดีด้วย! ถึง Lv.5 แล้ว', 'ได้รับสัตว์เลี้ยง ' + p.name, 'มันจะเด้งตามคุณไปทุกที่และช่วยเก็บของที่ตกให้ · สัตว์เลี้ยงตัวอื่นซื้อได้ที่ร้านสัตว์เลี้ยงในหมู่บ้าน');
     logMsg('ได้รับสัตว์เลี้ยง ' + p.name + ' เป็นของขวัญ Lv.5', 'loot'); if (SFX) SFX.play('equip'); saveGame();
   }
   function updatePet(dt) {
@@ -24045,7 +24072,8 @@ function createHydra(scale){
     var S = rideState(); if (S.gift10 || (GS.lv || 1) < 10) return;
     S.gift10 = 1; S.own.m_bay = 1; if (!S.on) S.on = 'm_bay';
     var C = HORSES.m_bay;
-    notify('ของขวัญถึง Lv.10! ได้ม้า ' + C.name + ' · กด R เพื่อขึ้นขี่ ความเร็ว +2.5 (ม้าและหมาป่าตัวอื่นซื้อได้ที่ร้านป้าบุญมี)');
+    notify('ของขวัญถึง Lv.10! ได้ม้า ' + C.name + ' · กด R เพื่อขึ้นขี่ ความเร็ว +2.5 (พาหนะตัวอื่นซื้อได้ที่คอกม้าลุงสมชาย)');
+    giftPop('ยินดีด้วย! ถึง Lv.10 แล้ว', 'ได้รับม้า ' + C.name, 'กด R เพื่อขึ้นขี่ เดินเร็วขึ้น +2.5 · กด R อีกครั้งเพื่อลง · พาหนะตัวอื่นซื้อได้ที่คอกม้าลุงสมชายในหมู่บ้าน');
     logMsg('ได้รับม้า ' + C.name + ' เป็นของขวัญ Lv.10', 'loot'); if (SFX) SFX.play('equip');
     rideDust(10); saveGame();
   }
@@ -25902,17 +25930,9 @@ function createHydra(scale){
         card.appendChild(el('div', 'lb-foot', 'เล่นโดยไม่ใช้ ID: ตัวละครเซฟไว้ในเครื่องนี้เท่านั้น สร้าง ID ทีหลังได้ ตัวละครในเครื่องจะถูกย้ายขึ้นเซิร์ฟเวอร์ให้'));
         return;
       }
-      if (mode === 'shown') {
-        head(card, 'ID ' + id() + ' พร้อมแล้ว');
-        card.appendChild(el('div', 'nb-note', 'นี่คือรหัสเซฟของคุณ จดหรือคัดลอกเก็บไว้ ใช้คู่กับ ID เพื่อ Login จากเครื่องอื่น ถ้าลืมจะกู้คืนไม่ได้'));
-        card.appendChild(el('div', 'nb-code', key()));
-        var cp = btn('คัดลอกรหัสเซฟ'), go = btn('เข้าสู่เกม', 'lb-go'), bx = el('div', 'nb-col'); card.appendChild(bx);
-        cp.addEventListener('click', function () { var k = key(); Promise.resolve().then(function () { return navigator.clipboard.writeText(k); }).then(function () { cp.textContent = 'คัดลอกแล้ว'; }, function () { cp.textContent = k; }); });
-        go.addEventListener('click', done); bx.appendChild(cp); bx.appendChild(go); return;
-      }
       head(card, mode === 'create' ? 'สร้าง ID ใหม่' : 'Login ด้วย ID เดิม');
       var f = el('div', 'nb-col'); card.appendChild(f);
-      var idIn = field('ID (A-Z, 0-9 · 3–16 ตัว)', 16), k1 = field(mode === 'create' ? 'ตั้งรหัสเซฟ 6–20 ตัว (เว้นว่างให้สุ่ม)' : 'รหัสเซฟ', 20, true), k2 = mode === 'create' ? field('พิมพ์รหัสเซฟอีกครั้ง', 20, true) : null;
+      var idIn = field('ID (A-Z, 0-9 · 3–16 ตัว)', 16), k1 = field(mode === 'create' ? 'ตั้งรหัสเซฟ 6–20 ตัว (A-Z, 0-9)' : 'รหัสเซฟ', 20, true), k2 = mode === 'create' ? field('พิมพ์รหัสเซฟอีกครั้ง', 20, true) : null;
       var msg = el('div', 'lb-hint'); msg.setAttribute('aria-live', 'polite');
       var ok = btn(mode === 'create' ? 'สร้าง ID' : 'Login', 'lb-go'), back = btn('ย้อนกลับ');
       f.appendChild(idIn); f.appendChild(k1); if (k2) f.appendChild(k2); f.appendChild(msg); f.appendChild(ok); f.appendChild(back);
@@ -25924,13 +25944,13 @@ function createHydra(scale){
       ok.addEventListener('click', function () {
         var uid = idIn.value.trim(), uk = k1.value.trim().toUpperCase().replace(/\s/g, '');
         if (!ID_RE.test(uid)) return bad(ERR.bad_id);
-        if (mode === 'create') { if (uk && !KEY_RE.test(uk)) return bad(ERR.bad_key); if (uk !== k2.value.trim().toUpperCase().replace(/\s/g, '')) return bad('รหัสเซฟทั้งสองช่องไม่ตรงกัน'); }
+        if (mode === 'create') { if (!KEY_RE.test(uk)) return bad(ERR.bad_key); if (uk !== k2.value.trim().toUpperCase().replace(/\s/g, '')) return bad('รหัสเซฟทั้งสองช่องไม่ตรงกัน'); }
         else if (!KEY_RE.test(uk)) return bad(ERR.bad_key);
         ok.disabled = true; msg.className = 'lb-hint'; msg.textContent = 'กำลังติดต่อเซิร์ฟเวอร์...';
-        if (mode === 'create') call(uk ? { action: 'register', id: uid, key: uk } : { action: 'register', id: uid }).then(function (r) {
+        if (mode === 'create') call({ action: 'register', id: uid, key: uk }).then(function (r) {
           if (!r || !r.ok) return bad(errText(r && r.err));
-          ls('nb-id', uid); ls('nb-key', r.key); ls('nb-base', 0); ls('nb-offline', null); ls('nb-owner', uid.toLowerCase());
-          (hasLocal() ? push(true) : Promise.resolve()).then(function () { accountView(card, done, 'shown'); });
+          ls('nb-id', uid); ls('nb-key', uk); ls('nb-base', 0); ls('nb-offline', null); ls('nb-owner', uid.toLowerCase());
+          (hasLocal() ? push(true) : Promise.resolve()).then(function () { done(); });
         }, function () { bad(errText()); });
         else call({ action: 'login', id: uid, key: uk }).then(function (r) {
           if (!r || !r.ok) return bad(errText(r && r.err));
