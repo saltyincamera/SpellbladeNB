@@ -25974,13 +25974,13 @@ function createHydra(scale){
       if (!mode) {
         head(card, 'เข้าสู่ระบบเพื่อเล่นได้ทุกเครื่อง ตัวละครเซฟไว้บนเซิร์ฟเวอร์');
         var box = el('div', 'nb-col'); card.appendChild(box);
-        var c = btn('สร้าง ID ใหม่', 'lb-go'), l = btn('Login ด้วย ID เดิม');
+        var c = btn('สร้าง ID ใหม่', 'lb-go'), l = btn('Login');
         c.addEventListener('click', function () { accountView(card, done, 'create'); }); l.addEventListener('click', function () { accountView(card, done, 'login'); });
         box.appendChild(c); box.appendChild(l);
         if (hasLocal()) card.appendChild(el('div', 'lb-foot', 'ตัวละครที่เล่นไว้ในเครื่องนี้ จะถูกย้ายขึ้น ID ที่สร้างใหม่ให้'));
         return;
       }
-      head(card, mode === 'create' ? 'สร้าง ID ใหม่' : 'Login ด้วย ID เดิม');
+      head(card, mode === 'create' ? 'สร้าง ID ใหม่' : 'Login');
       var f = el('div', 'nb-col'); card.appendChild(f);
       var idIn = field('ID (A-Z, 0-9 · 3–16 ตัว)', 16), k1 = field(mode === 'create' ? 'ตั้งรหัสเซฟ 6–20 ตัว (A-Z, 0-9)' : 'รหัสเซฟ', 20, true), k2 = mode === 'create' ? field('พิมพ์รหัสเซฟอีกครั้ง', 20, true) : null;
       var msg = el('div', 'lb-hint'); msg.setAttribute('aria-live', 'polite');
