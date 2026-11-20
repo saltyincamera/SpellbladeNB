@@ -686,6 +686,7 @@ dt { color: var(--ih-brass) !important; } dd { color: var(--ih-moon) !important;
 .lb-ask { font-size: 13.5px; color: #ffb8b0; }
 .lb-foot { font-size: 12.5px; color: #ab9d84; text-align: center; }
 .nb-col { display: flex; flex-direction: column; gap: 8px; }
+.nb-col .btn.lb-del, .nb-bar .btn.lb-del { border-color: #c9433b !important; color: #ffb8b0 !important; background: rgba(120, 30, 24, .35) !important; }
 .nb-in { font: 16px var(--f-body, sans-serif); padding: 9px 11px; border-radius: 6px; border: 1px solid #8a6a34; background: rgba(0, 0, 0, .35); color: #efe6d2; }
 .nb-note { font-size: 14px; color: #efe6d2; text-align: center; line-height: 1.5; }
 .nb-code { font: 700 22px ui-monospace, monospace; letter-spacing: .12em; color: #d6ad55; text-align: center; padding: 10px; border: 1px dashed #8a6a34; border-radius: 8px; user-select: all; }
@@ -25912,7 +25913,7 @@ function createHydra(scale){
       if (!S.on || !id() || !isDirty() || S.conflict || !navigator.sendBeacon) return;
       try { navigator.sendBeacon(NB_URL, new Blob([JSON.stringify({ action: 'save', id: id(), key: key(), data: JSON.stringify(bundle()), base: base() })], { type: 'text/plain;charset=utf-8' })); } catch (e) {}
     });
-    var ERR = { bad_id: 'ID ใช้ได้เฉพาะ A-Z, 0-9 ยาว 3–16 ตัว', bad_key: 'รหัสเซฟต้องเป็น A-Z, 0-9 ยาว 6–20 ตัว', id_taken: 'ID นี้มีคนใช้แล้ว ลองชื่ออื่น', not_found: 'ไม่พบ ID นี้', bad_login: 'ID หรือรหัสเซฟไม่ถูกต้อง', too_big: 'เซฟใหญ่เกินไป', busy: 'เซิร์ฟเวอร์ไม่ว่าง ลองใหม่อีกครั้ง' };
+    var ERR = { bad_id: 'ID ใช้ได้เฉพาะ A-Z, 0-9 ยาว 3–16 ตัว', bad_key: 'รหัสเซฟต้องเป็น A-Z, 0-9 ยาว 6–20 ตัว', id_taken: 'ID นี้มีคนใช้แล้ว ลองชื่ออื่น', not_found: 'ไม่พบ ID นี้', bad_login: 'ID หรือรหัสเซฟไม่ถูกต้อง', too_big: 'เซฟใหญ่เกินไป', busy: 'เซิร์ฟเวอร์ไม่ว่าง ลองใหม่อีกครั้ง', bad_action: 'เซิร์ฟเวอร์ยังไม่รองรับคำสั่งนี้ (ต้องอัปเดต Code.gs)' };
     function errText(e) { return ERR[e] || 'เชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ ลองใหม่อีกครั้ง'; }
     function hasLocal() { for (var n = 1; n <= SLOT_N; n++) if (readSlot(n)) return true; return false; }
     // ---------- the lobby: account page, account bar, conflict page ----------
@@ -25986,6 +25987,32 @@ function createHydra(scale){
         }, function () { slotsView(); });
       });
     }
+    // the owner removes the ID for good: retype the save code, then confirm once more
+    function deleteView(card, slotsView) {
+      card.innerHTML = ''; head(card, 'ลบ ID ' + id());
+      card.appendChild(el('div', 'nb-note', 'ID นี้และตัวละครทุกตัวในนั้นจะถูกลบออกจากเซิร์ฟเวอร์ถาวร กู้คืนไม่ได้'));
+      var f = el('div', 'nb-col'); card.appendChild(f);
+      var k = field('พิมพ์รหัสเซฟเพื่อยืนยัน', 20, true), msg = el('div', 'lb-hint'), ok = btn('ลบ ID นี้', 'lb-del'), back = btn('ยกเลิก');
+      msg.setAttribute('aria-live', 'polite'); f.appendChild(k); f.appendChild(msg); f.appendChild(ok); f.appendChild(back);
+      function bad(t) { msg.textContent = t; msg.className = 'lb-hint err'; ok.disabled = false; }
+      back.addEventListener('click', function () { slotsView(); });
+      k.addEventListener('keydown', function (e) { if (e.key === 'Enter') ok.click(); });
+      var armed = false;
+      ok.addEventListener('click', function () {
+        var uk = k.value.trim().toUpperCase().replace(/\s/g, '');
+        if (uk !== key()) return bad('รหัสเซฟไม่ถูกต้อง');
+        if (!armed) { armed = true; ok.textContent = 'ยืนยันอีกครั้ง: ลบถาวร'; msg.className = 'lb-hint err'; msg.textContent = 'กดอีกครั้งเพื่อลบ ID ' + id() + ' ถาวร'; return; }
+        ok.disabled = true; msg.className = 'lb-hint'; msg.textContent = 'กำลังลบ...';
+        call({ action: 'delete', id: id(), key: uk }).then(function (r) {
+          if (!r || (!r.ok && r.err !== 'not_found')) return bad(errText(r && r.err));
+          ['nb-id', 'nb-key', 'nb-base', 'nb-dirty', 'nb-owner', 'nb-offline'].forEach(function (x) { ls(x, null); });
+          for (var n = 1; n <= SLOT_N; n++) ls(slotKey(n), null);
+          card.innerHTML = ''; head(card, 'ลบ ID เรียบร้อยแล้ว');
+          var go = btn('กลับหน้าแรก', 'lb-go'); go.addEventListener('click', function () { accountView(card, slotsView); }); card.appendChild(go);
+        }, function () { bad(errText()); });
+      });
+      setTimeout(function () { k.focus(); }, 40);
+    }
     function bar(card, slotsView) {
       var b = el('div', 'nb-bar');
       if (S.on && id()) {
@@ -25994,6 +26021,7 @@ function createHydra(scale){
           var go = function () { ls('nb-id', null); ls('nb-key', null); ls('nb-base', null); ls('nb-dirty', null); ls('nb-owner', null); for (var n = 1; n <= SLOT_N; n++) ls(slotKey(n), null); gate(card, slotsView); };
           if (isDirty()) push().then(go); else go();
         }); b.appendChild(out);
+        var del = btn('ลบ ID', 'lb-del'); del.addEventListener('click', function () { deleteView(card, slotsView); }); b.appendChild(del);
       } else if (S.on) {
         b.appendChild(el('span', 'nb-who', 'เล่นแบบเซฟในเครื่อง'));
         var li = btn('สร้าง ID / Login'); li.addEventListener('click', function () { ls('nb-offline', null); accountView(card, slotsView); }); b.appendChild(li);
