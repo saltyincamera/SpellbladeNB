@@ -25902,7 +25902,10 @@ function createHydra(scale){
   var NB_URL = 'https://script.google.com/macros/s/AKfycbzThU_wi0RLJ0HqpB1OJKXCxmpsw6XLjTo7CjrAg_uWbslILp0ZaqyWD-y1fSGa6ek0/exec';   // set to the Apps Script web-app URL after deploying net/Code.gs
   var NB = (function () {
     var ID_RE = /^[A-Za-z0-9]{3,16}$/, KEY_RE = /^[A-Z0-9]{6,20}$/, S = { on: false, checked: false, pushing: false, timer: null, conflict: null };
-    function ls(k, v) { try { if (v === undefined) return localStorage.getItem(k) || ''; if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, String(v)); } catch (e) { return ''; } }
+    // who is signed in lives only in this tab (sessionStorage): closing the tab or the browser signs out; a reload keeps it
+    var TAB = { 'nb-id': 1, 'nb-key': 1, 'nb-tok': 1 };
+    function ls(k, v) { try { var st = TAB[k] ? sessionStorage : localStorage; if (v === undefined) return st.getItem(k) || ''; if (v === null) st.removeItem(k); else st.setItem(k, String(v)); } catch (e) { return ''; } }
+    try { ['nb-id', 'nb-key', 'nb-tok'].forEach(function (k) { localStorage.removeItem(k); }); } catch (e) {}   // older versions kept these for good
     function id() { return ls('nb-id'); } function key() { return ls('nb-key'); } function tok() { return ls('nb-tok'); }
     // the browser keeps a login pass, never the save code (an older server that hands out no pass falls back to the code)
     function authed() { return !!(id() && (tok() || key())); }
@@ -26026,7 +26029,12 @@ function createHydra(scale){
       card.innerHTML = ''; card.appendChild(el('div', 'lb-sub', 'กำลังเชื่อมต่อ...'));
       probe().then(function (on) {
         if (!on) return slotsView();
-        if (!authed()) { ls('nb-id', null); return accountView(card, slotsView); }
+        if (!authed()) {
+          ls('nb-id', null);
+          // characters left by an ID that was signed in before belong to that ID, not to whoever signs in next
+          if (ls('nb-owner')) { ['nb-base', 'nb-dirty', 'nb-owner'].forEach(function (x) { ls(x, null); }); for (var n = 1; n <= SLOT_N; n++) ls(slotKey(n), null); }
+          return accountView(card, slotsView);
+        }
         var uk = key();   // a code kept by an older version is traded for a login pass, then forgotten
         call(tok() ? { action: 'resume', id: id(), tok: tok() } : { action: 'login', id: id(), key: uk }).then(function (r) {
           if (r && r.err === 'in_use') return inUseView(card, slotsView);
