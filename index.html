@@ -25903,7 +25903,11 @@ function createHydra(scale){
   var NB = (function () {
     var ID_RE = /^[A-Za-z0-9]{3,16}$/, KEY_RE = /^[A-Z0-9]{6,20}$/, S = { on: false, checked: false, pushing: false, timer: null, conflict: null };
     function ls(k, v) { try { if (v === undefined) return localStorage.getItem(k) || ''; if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, String(v)); } catch (e) { return ''; } }
-    function id() { return ls('nb-id'); } function key() { return ls('nb-key'); }
+    function id() { return ls('nb-id'); } function key() { return ls('nb-key'); } function tok() { return ls('nb-tok'); }
+    // the browser keeps a login pass, never the save code (an older server that hands out no pass falls back to the code)
+    function authed() { return !!(id() && (tok() || key())); }
+    function cred(b) { if (tok()) b.tok = tok(); else b.key = key(); return b; }
+    function signedIn(uid, uk, r) { ls('nb-id', (r && r.shown) || uid); if (r && r.tok) { ls('nb-tok', r.tok); ls('nb-key', null); } else ls('nb-key', uk); ls('nb-offline', null); }
     function base() { return +ls('nb-base') || 0; } function isDirty() { return ls('nb-dirty') === '1'; }
     // this browser tab's session token: kept across the reload into the game, new in every other tab or device
     function sess() { var t = ''; try { t = sessionStorage.getItem('nb-sess') || ''; if (!t) { t = Date.now().toString(36) + Math.random().toString(36).slice(2, 10); sessionStorage.setItem('nb-sess', t); } } catch (e) { t = t || 'x' + Math.random().toString(36).slice(2, 10); } return t; }
@@ -25931,12 +25935,13 @@ function createHydra(scale){
     }
     function summary(b) { var out = []; if (b && b.slots) Object.keys(b.slots).forEach(function (n) { var d = b.slots[n]; if (d) out.push((d.name || 'นักผจญภัย') + ' Lv.' + (d.lv || 1)); }); return out.join(' · ') || 'ไม่มีตัวละคร'; }
     function push(force) {
-      if (!S.on || !id() || !key() || S.pushing || S.lock) return Promise.resolve(false);
+      if (!S.on || !authed() || S.pushing || S.lock) return Promise.resolve(false);
       S.pushing = true;
-      var body = { action: 'save', id: id(), key: key(), data: JSON.stringify(bundle()), base: force ? 0 : base() };
+      var body = cred({ action: 'save', id: id(), data: JSON.stringify(bundle()), base: force ? 0 : base() });
       return call(body).then(function (r) {
         if (r && r.ok) { ls('nb-base', r.updatedAt); ls('nb-dirty', '0'); return true; }
         if (r && r.err === 'in_use') { kicked(); return false; }
+        if (r && r.err === 'bad_tok') { signedOut(); return false; }
         if (r && r.err === 'stale' && mine(r.data)) { S.pushing = false; return push(true); }
         // another device saved since: the server copy wins. Stop sending, go back to the lobby, which loads the server copy
         if (r && r.err === 'stale') {
@@ -25952,27 +25957,34 @@ function createHydra(scale){
       if (typeof notify === 'function' && !LOBBY) notify('ID นี้ถูกเข้าเล่นจากเครื่องอื่น · กลับไปหน้าแรก');
       setTimeout(function () { try { sessionStorage.removeItem('ro-active'); } catch (e) {} location.reload(); }, LOBBY ? 0 : 1800);
     }
+    // the login pass ran out or was ended (logged out elsewhere): sign in again from the lobby
+    function signedOut() {
+      if (S.lock) return; S.lock = true; ls('nb-tok', null); ls('nb-key', null);
+      if (typeof notify === 'function' && !LOBBY) notify('หมดเวลาเข้าสู่ระบบ · กรุณา Login ใหม่');
+      setTimeout(function () { try { sessionStorage.removeItem('ro-active'); } catch (e) {} location.reload(); }, LOBBY ? 0 : 1800);
+    }
     // while the game is open it keeps the ID held, so no other device can log in
     setInterval(function () {
-      if (!S.on || !id() || !key() || S.lock) return;
-      call({ action: 'ping', id: id(), key: key() }, 10000).then(function (r) { if (r && r.err === 'in_use') kicked(); }, function () {});
+      if (!S.on || !authed() || S.lock) return;
+      call(cred({ action: 'ping', id: id() }), 10000).then(function (r) { if (r && r.err === 'in_use') kicked(); else if (r && r.err === 'bad_tok') signedOut(); }, function () {});
     }, 30000);
     function dirty() { if (!id() || S.lock) return; ls('nb-dirty', '1'); if (!S.on || S.timer) return; S.timer = setTimeout(function () { S.timer = null; push(); }, 6000); }
     // leaving the page: hand the latest save to the server without waiting for an answer
     window.addEventListener('pagehide', function () {
-      if (!S.on || !id() || !isDirty() || S.lock || !navigator.sendBeacon) return;
-      try { navigator.sendBeacon(NB_URL, new Blob([JSON.stringify({ action: 'save', id: id(), key: key(), sess: sess(), data: JSON.stringify(bundle()), base: base() })], { type: 'text/plain;charset=utf-8' })); } catch (e) {}
+      if (!S.on || !authed() || !isDirty() || S.lock || !navigator.sendBeacon) return;
+      try { navigator.sendBeacon(NB_URL, new Blob([JSON.stringify(cred({ action: 'save', id: id(), sess: sess(), data: JSON.stringify(bundle()), base: base() }))], { type: 'text/plain;charset=utf-8' })); } catch (e) {}
     });
-    var ERR = { bad_id: 'ID ใช้ได้เฉพาะ A-Z, 0-9 ยาว 3–16 ตัว', bad_key: 'รหัสเซฟต้องเป็น A-Z, 0-9 ยาว 6–20 ตัว', id_taken: 'ID นี้มีคนใช้แล้ว ลองชื่ออื่น', not_found: 'ไม่พบ ID นี้', bad_login: 'ID หรือรหัสเซฟไม่ถูกต้อง', too_big: 'เซฟใหญ่เกินไป', busy: 'เซิร์ฟเวอร์ไม่ว่าง ลองใหม่อีกครั้ง', bad_action: 'เซิร์ฟเวอร์ยังไม่รองรับคำสั่งนี้ (ต้องอัปเดต Code.gs)', in_use: 'ID นี้กำลังเล่นอยู่ที่เครื่องอื่น · ออกจากระบบที่เครื่องนั้นก่อน หรือรอประมาณ 2 นาทีหลังปิดเกม' };
+    var ERR = { bad_id: 'ID ใช้ได้เฉพาะ A-Z, 0-9 ยาว 3–16 ตัว', bad_key: 'รหัสเซฟต้องเป็น A-Z, 0-9 ยาว 6–20 ตัว', id_taken: 'ID นี้มีคนใช้แล้ว ลองชื่ออื่น', not_found: 'ไม่พบ ID นี้', bad_login: 'ID หรือรหัสเซฟไม่ถูกต้อง', bad_tok: 'หมดเวลาเข้าสู่ระบบ กรุณา Login ใหม่', too_big: 'เซฟใหญ่เกินไป', busy: 'เซิร์ฟเวอร์ไม่ว่าง ลองใหม่อีกครั้ง', bad_action: 'เซิร์ฟเวอร์ยังไม่รองรับคำสั่งนี้ (ต้องอัปเดต Code.gs)', in_use: 'ID นี้กำลังเล่นอยู่ที่เครื่องอื่น · ออกจากระบบที่เครื่องนั้นก่อน หรือรอประมาณ 2 นาทีหลังปิดเกม' };
     function errText(e) { return ERR[e] || 'เชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ ลองใหม่อีกครั้ง'; }
     function hasLocal() { for (var n = 1; n <= SLOT_N; n++) if (readSlot(n)) return true; return false; }
     // ---------- the lobby: account page, account bar, conflict page ----------
     function field(ph, max, pw) { var i = document.createElement('input'); i.type = pw ? 'password' : 'text'; i.placeholder = ph; i.maxLength = max; i.autocomplete = 'off'; i.className = 'nb-in'; i.addEventListener('keydown', function (e) { e.stopPropagation(); }); return i; }
     function head(card, sub) { card.innerHTML = ''; card.classList.remove('wide'); var tt = el('div', 'lb-title lb-game', 'Spellblade Legends'); tt.appendChild(el('span', 'lb-tag', 'New Blood')); card.appendChild(tt); if (sub) card.appendChild(el('div', 'lb-sub', sub)); }
     function btn(t, cls) { var b = el('button', 'btn' + (cls ? ' ' + cls : ''), t); b.type = 'button'; return b; }
-    function accountView(card, done, mode) {
+    function accountView(card, done, mode, why) {
       if (!mode) {
         head(card, 'เข้าสู่ระบบเพื่อเล่นได้ทุกเครื่อง ตัวละครเซฟไว้บนเซิร์ฟเวอร์');
+        if (why) card.appendChild(el('div', 'nb-note', why));
         var box = el('div', 'nb-col'); card.appendChild(box);
         var c = btn('สร้าง ID ใหม่', 'lb-go'), l = btn('Login');
         c.addEventListener('click', function () { accountView(card, done, 'create'); }); l.addEventListener('click', function () { accountView(card, done, 'login'); });
@@ -25999,12 +26011,12 @@ function createHydra(scale){
         ok.disabled = true; msg.className = 'lb-hint'; msg.textContent = 'กำลังติดต่อเซิร์ฟเวอร์...';
         if (mode === 'create') call({ action: 'register', id: uid, key: uk }).then(function (r) {
           if (!r || !r.ok) return bad(errText(r && r.err));
-          ls('nb-id', uid); ls('nb-key', uk); ls('nb-base', 0); ls('nb-offline', null); ls('nb-owner', uid.toLowerCase());
+          signedIn(uid, uk, r); ls('nb-base', 0); ls('nb-owner', uid.toLowerCase());
           (hasLocal() ? push(true) : Promise.resolve()).then(function () { done(); });
         }, function () { bad(errText()); });
         else call({ action: 'login', id: uid, key: uk }).then(function (r) {
           if (!r || !r.ok) return bad(errText(r && r.err));
-          ls('nb-id', r.shown || uid); ls('nb-key', uk); ls('nb-offline', null); apply(r.data, r.updatedAt); done();
+          signedIn(uid, uk, r); apply(r.data, r.updatedAt); done();
         }, function () { bad(errText()); });
       });
       setTimeout(function () { idIn.focus(); }, 40);
@@ -26014,10 +26026,12 @@ function createHydra(scale){
       card.innerHTML = ''; card.appendChild(el('div', 'lb-sub', 'กำลังเชื่อมต่อ...'));
       probe().then(function (on) {
         if (!on) return slotsView();
-        if (!id()) return accountView(card, slotsView);
-        call({ action: 'login', id: id(), key: key() }).then(function (r) {
+        if (!authed()) { ls('nb-id', null); return accountView(card, slotsView); }
+        var uk = key();   // a code kept by an older version is traded for a login pass, then forgotten
+        call(tok() ? { action: 'resume', id: id(), tok: tok() } : { action: 'login', id: id(), key: uk }).then(function (r) {
           if (r && r.err === 'in_use') return inUseView(card, slotsView);
-          if (!r || !r.ok) { if (r && (r.err === 'bad_login' || r.err === 'not_found')) { ls('nb-id', null); ls('nb-key', null); return accountView(card, slotsView); } return slotsView(); }
+          if (!r || !r.ok) { if (r && (r.err === 'bad_login' || r.err === 'not_found' || r.err === 'bad_tok' || r.err === 'bad_action')) { ls('nb-id', null); ls('nb-key', null); ls('nb-tok', null); return accountView(card, slotsView, null, 'กรุณา Login ใหม่'); } return slotsView(); }
+          if (uk && r.tok) signedIn(id(), uk, r);
           if (+r.updatedAt > base()) { if (isDirty() && mine(r.data)) push(true); else apply(r.data, r.updatedAt); }   // the server copy is the one that counts; only this browser's own unanswered save goes back up
           else if (isDirty()) push();
           slotsView();
@@ -26037,12 +26051,13 @@ function createHydra(scale){
       var armed = false;
       ok.addEventListener('click', function () {
         var uk = k.value.trim().toUpperCase().replace(/\s/g, '');
-        if (uk !== key()) return bad('รหัสเซฟไม่ถูกต้อง');
+        if (!KEY_RE.test(uk)) return bad('รหัสเซฟไม่ถูกต้อง');
         if (!armed) { armed = true; ok.textContent = 'ยืนยันอีกครั้ง: ลบถาวร'; msg.className = 'lb-hint err'; msg.textContent = 'กดอีกครั้งเพื่อลบ ID ' + id() + ' ถาวร'; return; }
         ok.disabled = true; msg.className = 'lb-hint'; msg.textContent = 'กำลังลบ...';
         call({ action: 'delete', id: id(), key: uk }).then(function (r) {
+          if (r && r.err === 'bad_login') { armed = false; ok.textContent = 'ลบ ID นี้'; return bad('รหัสเซฟไม่ถูกต้อง'); }
           if (!r || (!r.ok && r.err !== 'not_found')) return bad(errText(r && r.err));
-          ['nb-id', 'nb-key', 'nb-base', 'nb-dirty', 'nb-owner', 'nb-offline'].forEach(function (x) { ls(x, null); });
+          ['nb-id', 'nb-key', 'nb-tok', 'nb-base', 'nb-dirty', 'nb-owner', 'nb-offline'].forEach(function (x) { ls(x, null); });
           for (var n = 1; n <= SLOT_N; n++) ls(slotKey(n), null);
           card.innerHTML = ''; head(card, 'ลบ ID เรียบร้อยแล้ว');
           var go = btn('กลับหน้าแรก', 'lb-go'); go.addEventListener('click', function () { accountView(card, slotsView); }); card.appendChild(go);
@@ -26050,7 +26065,7 @@ function createHydra(scale){
       });
       setTimeout(function () { k.focus(); }, 40);
     }
-    function forget() { ['nb-id', 'nb-key', 'nb-base', 'nb-dirty', 'nb-owner'].forEach(function (x) { ls(x, null); }); for (var n = 1; n <= SLOT_N; n++) ls(slotKey(n), null); }
+    function forget() { ['nb-id', 'nb-key', 'nb-tok', 'nb-base', 'nb-dirty', 'nb-owner'].forEach(function (x) { ls(x, null); }); for (var n = 1; n <= SLOT_N; n++) ls(slotKey(n), null); }
     function inUseView(card, slotsView) {
       head(card, 'ID ' + id() + ' กำลังเล่นอยู่ที่เครื่องอื่น');
       card.appendChild(el('div', 'nb-note', 'เข้าเล่นซ้อนกันไม่ได้ · ออกจากระบบที่เครื่องนั้นก่อน หรือปิดเกมที่เครื่องนั้นแล้วรอประมาณ 2 นาที'));
@@ -26065,7 +26080,7 @@ function createHydra(scale){
       if (S.on && id()) {
         b.appendChild(el('span', 'nb-who', 'ID ' + id() + (isDirty() ? ' · รอซิงก์' : ' · ซิงก์แล้ว')));
         var out = btn('ออกจากระบบ'); out.addEventListener('click', function () {
-          var go = function () { var i0 = id(), k0 = key(); call({ action: 'logout', id: i0, key: k0 }, 8000).catch(function () {}); forget(); gate(card, slotsView); };
+          var go = function () { call(cred({ action: 'logout', id: id() }), 8000).catch(function () {}); forget(); gate(card, slotsView); };
           if (isDirty()) push().then(go); else go();
         }); b.appendChild(out);
         var del = btn('ลบ ID', 'lb-del'); del.addEventListener('click', function () { deleteView(card, slotsView); }); b.appendChild(del);
@@ -26076,7 +26091,7 @@ function createHydra(scale){
       return b;
     }
     // in the game itself: pick up a save that was still waiting to go up
-    if (!LOBBY && id() && NB_URL) probe().then(function (on) { if (on && isDirty()) push(); });
+    if (!LOBBY && authed() && NB_URL) probe().then(function (on) { if (on && isDirty()) push(); });
     return { dirty: dirty, gate: gate, bar: bar, online: function () { return S.on && !!id(); } };
   })();
   var GS = { lv: 1, exp: 0, hp: 31, mhp: 31, mp: 10, mmp: 10, st: 100, mst: 100, gold: 500, owned: { sword: true }, shield: true, inv: [{ id: 'red', n: 3 }, { id: 'blue', n: 2 }], eq: { weapon: 'st_sword', shield: 'st_shield', armor: null, helmet: null, shoes: null }, str: 1, int_: 1, dex: 1, agi: 1, vit: 1, luc: 1, sp: 0 };
