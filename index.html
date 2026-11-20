@@ -758,6 +758,22 @@ dt { color: var(--ih-brass) !important; } dd { color: var(--ih-moon) !important;
 #giftPop .gp-rays { width: 64px; height: 64px; margin: 4px auto 0; border-radius: 50%; background: radial-gradient(circle, #ffe9a8 0 22%, rgba(255, 214, 107, .55) 23% 40%, rgba(255, 214, 107, 0) 70%); animation: gpGlow 1.6s ease-in-out infinite; }
 @keyframes gpIn { from { transform: scale(.7); opacity: 0; } to { transform: scale(1); opacity: 1; } }
 @keyframes gpGlow { 50% { transform: scale(1.15); opacity: .8; } }
+#winElem .shop-card { width: min(400px, calc(100% - 20px)); left: auto; right: 20px; top: 64px; transform: none; }
+@media (max-width: 700px) { #winElem .shop-card { left: 8px; right: 8px; top: 8px; width: auto; } }
+#winSkill .shop-head .el-open { margin-left: auto; margin-right: 8px; padding: 4px 10px; font-size: 13px; }
+#elBody { display: flex; flex-direction: column; gap: 10px; }
+.el-wheel { width: 100%; max-width: 320px; height: auto; align-self: center; font-family: inherit; }
+.el-tw { overflow-x: auto; }
+.el-tab { width: 100%; border-collapse: collapse; font-size: 14px; text-align: center; }
+.el-tab caption { font-size: 12.5px; color: #ab9d84; padding-bottom: 6px; }
+.el-tab th, .el-tab td { padding: 6px 4px; border: 1px solid rgba(138, 106, 52, .45); }
+.el-tab thead th { background: rgba(0, 0, 0, .25); font-weight: 700; }
+.el-tab td.up { color: #8ff08a; font-weight: 700; background: rgba(60, 140, 50, .18); }
+.el-tab td.dn { color: #ff9a8a; font-weight: 700; background: rgba(160, 50, 40, .18); }
+.el-tab td { color: #cdbf9f; }
+.el-notes { margin: 0; padding-left: 18px; font-size: 13.5px; line-height: 1.55; color: #e6dac0; display: flex; flex-direction: column; gap: 4px; }
+.el-notes .up { color: #8ff08a; } .el-notes .dn { color: #ff9a8a; }
+.el-sub { font-size: 13px; color: #d6ad55; font-weight: 600; }
 </style>
 
 <div class="game" id="game">
@@ -840,8 +856,14 @@ dt { color: var(--ih-brass) !important; } dd { color: var(--ih-moon) !important;
 </div>
     <div class="win" id="winSkill" hidden role="dialog" aria-labelledby="wsT">
       <div class="shop-card">
-        <div class="shop-head"><h2 id="wsT">สกิล</h2><button type="button" class="xbtn" data-close aria-label="ปิด">×</button></div>
+        <div class="shop-head"><h2 id="wsT">สกิล</h2><button type="button" class="btn el-open" id="elBtn">ตารางธาตุ (E)</button><button type="button" class="xbtn" data-close aria-label="ปิด">×</button></div>
         <div id="skBody" style="display:flex;flex-direction:column;gap:8px"></div>
+      </div>
+    </div>
+    <div class="win" id="winElem" hidden role="dialog" aria-labelledby="weT">
+      <div class="shop-card">
+        <div class="shop-head"><h2 id="weT">ตารางธาตุ ชนะ–แพ้</h2><button type="button" class="xbtn" data-close aria-label="ปิด">×</button></div>
+        <div id="elBody" class="panel-in"></div>
       </div>
     </div>
     <div class="win" id="winMap" hidden role="dialog" aria-labelledby="wmT">
@@ -906,6 +928,9 @@ dt { color: var(--ih-brass) !important; } dd { color: var(--ih-moon) !important;
             <label class="set-row" for="setCam"><span>ระยะกล้อง</span><input type="range" id="setCam" min="11" max="34" step="1" value="20"></label>
             <span class="set-note">ใช้ล้อเมาส์เพื่อซูมเข้า-ออกก็ได้</span>
           </div>
+          <div class="set-sec"><h3>ธาตุ</h3>
+            <div class="set-row"><span>ตารางธาตุ ชนะ–แพ้ · ไฟ ชนะ ลม ชนะ ดิน ชนะ น้ำ ชนะ ไฟ</span><button type="button" class="btn" id="elBtn2">เปิดดู</button></div>
+          </div>
           <details class="set-sec set-help"><summary><h3>วิธีเล่น</h3></summary>
           <dl>
           <dt>คลิกพื้น</dt><dd>เดินไปช่องนั้น หาทางอ้อมสิ่งกีดขวางเอง ช่องสีแดงคือเดินไม่ได้</dd>
@@ -921,6 +946,7 @@ dt { color: var(--ih-brass) !important; } dd { color: var(--ih-moon) !important;
           <dt><kbd>Esc</kbd></dt><dd>ยกเลิกเป้าหมาย หรือปิดหน้าร้าน</dd>
           <dt><kbd>1</kbd>–<kbd>0</kbd></dt><dd>แถบลัดด้านล่าง ใส่สกิลหรือยาได้ทุกช่อง (ลากจากหน้าสกิลหรือกระเป๋า · ลากช่องไปช่องอื่นเพื่อสลับ · ลากออกนอกแถบหรือคลิกขวาเพื่อเอาออก) เริ่มต้นช่อง 1 ยาแดง ช่อง 2 ยาฟ้า</dd>
           <dt><kbd>M</kbd></dt><dd>แผนที่ทั้งหมดของพื้นที่นี้ (หรือกดปุ่ม ⤢ ที่มุมแผนที่ย่อ)</dd>
+          <dt><kbd>E</kbd></dt><dd>ตารางธาตุ ชนะ–แพ้</dd>
           <dt><kbd>K</kbd></dt><dd>หน้าสกิล เรียนสกิลด้วยแต้มทักษะ ได้จากการโจมตีด้วยอาวุธสายนั้น ลากไอคอนไปวางที่แถบลัด</dd>
           <dt>ทางออก</dt><dd>ตะวันออก: หนองน้ำ Lv.1–10 · เหนือ: บันไดเชือกขึ้นผาหิน Lv.21–30 · ตะวันออกเฉียงใต้: สะพานเชือกไปป่าเริ่มต้น Lv.1–10 · ใต้: ท่าเรือไปดินแดนอิโนะโมโตะ (ทางที่ยังไม่เปิดมีป้ายบอก)</dd>
           <dt>คลิกอาคาร</dt><dd>เดินไปที่ประตูแล้วเข้าร้าน ร้านอาวุธ ร้านยา และโรงแรมอยู่ในหมู่บ้าน</dd>
@@ -23874,7 +23900,7 @@ function createHydra(scale){
     $('tfName').innerHTML = '<span class="lv">Lv.' + m.T.lv + '</span>' + m.T.name + (m.T.boss ? (m.T.mini ? ' · มินิบอส' : ' · บอส') : '');
     $('tfFill').style.width = Math.max(0, m.hp / m.T.hp * 100) + '%'; $('tfTxt').textContent = Math.max(0, Math.ceil(m.hp)) + ' / ' + m.T.hp;
   }
-  function openWins() { return ['winQuest', 'winHelp', 'winSkill', 'winMap', 'winStat', 'winStatUp'].filter(function (id) { return !$(id).hidden; }); }
+  function openWins() { return ['winQuest', 'winHelp', 'winSkill', 'winElem', 'winMap', 'winStat', 'winStatUp'].filter(function (id) { return !$(id).hidden; }); }
   function hideWin(id) { if (id === 'winStat' && !$('winStatUp').hidden) hideWin('winStatUp'); $(id).hidden = true; var b = $({ winWeapon: 'wpnBtn', winHelp: 'helpBtn', winSkill: 'skBtn', winStat: 'statBtn' }[id]); if (b) b.setAttribute('aria-pressed', 'false'); }
   function toggleWin(id) {
     var w = $(id); if (!w.hidden) { hideWin(id); return; }
@@ -26564,6 +26590,7 @@ function createHydra(scale){
     if (kk === 'r' && !e.repeat) { e.preventDefault(); rideToggle(); return; }
     if (kk === 'm' && !e.repeat) { e.preventDefault(); if ($('winMap').hidden) openWorldMap(); else hideWin('winMap'); return; }
     if (kk === 'j' && !e.repeat) { e.preventDefault(); if ($('winQuest').hidden) openQuests(null); else hideWin('winQuest'); return; }
+    if (kk === 'e' && !e.repeat) { e.preventDefault(); if (window.__elemOpen) window.__elemOpen(); return; }
     if (kk === 'k' && !e.repeat) { e.preventDefault(); if ($('winSkill').hidden) openSkills(); else hideWin('winSkill'); return; }
     if (shopOpen && npcShop) return;
     var p = POTIONS.filter(function (q) { return q.key === kk; })[0];
@@ -30181,6 +30208,61 @@ function createHydra(scale){
     $('wMp').textContent = (wIsMagic(w) ? 'สายเวท · ' + fmt1(atkMpCost(w)) + ' MP + ' : 'สายกายภาพ · ') + fmt1(atkStCost(w)) + ' Stamina ต่อครั้ง';
   }
   wearPlayer(); selectWeapon(curW);
+  // ---------- element chart: who beats whom (fire > wind > earth > water > fire), opened from the skill window, settings, or E ----------
+  (function () {
+    var EL = [['fire', 'ไฟ', '#ff7a3a'], ['wind', 'ลม', '#5fe0ae'], ['earth', 'ดิน', '#d9ae62'], ['water', 'น้ำ', '#5aaeff']];
+    var NAME = {}, COL = {}; EL.forEach(function (e) { NAME[e[0]] = e[1]; COL[e[0]] = e[2]; });
+    var GLYPH = {
+      fire: '<path d="M0,-15 C7,-6 12,-1 10,7 C8,14 -8,14 -10,7 C-12,0 -6,-4 -4,-10 C-2,-5 1,-4 0,-15Z" fill="currentColor"/>',
+      water: '<path d="M0,-15 C6,-6 10,0 10,5 A10,10 0 0 1 -10,5 C-10,0 -6,-6 0,-15Z" fill="currentColor"/>',
+      wind: '<g fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M-12,-5 H5 a5,5 0 1 0 -5,-5"/><path d="M-12,2 H9 a5,5 0 1 1 -5,5"/><path d="M-12,9 H-2"/></g>',
+      earth: '<path d="M-13,11 L-8,-4 L-1,-12 L8,-5 L13,11Z" fill="currentColor"/><path d="M-1,-12 L1,2 L-8,-4 M1,2 L8,-5 M1,2 L3,11" stroke="rgba(0,0,0,.35)" stroke-width="1.4" fill="none"/>'
+    };
+    function wheel() {
+      var P = { fire: [160, 46], wind: [270, 136], earth: [160, 226], water: [50, 136] }, s = '';
+      s += '<defs>' + EL.map(function (e) { return '<marker id="elA-' + e[0] + '" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10Z" fill="' + e[2] + '"/></marker>'; }).join('') + '</defs>';
+      EL.forEach(function (e) {
+        var a = P[e[0]], b = P[ELEM_BEATS[e[0]]], dx = b[0] - a[0], dy = b[1] - a[1], L = Math.hypot(dx, dy), ux = dx / L, uy = dy / L, r = 36;
+        var x1 = a[0] + ux * r, y1 = a[1] + uy * r, x2 = b[0] - ux * (r + 4), y2 = b[1] - uy * (r + 4), cx = (a[0] + b[0]) / 2, cy = (a[1] + b[1]) / 2, ox = cx - 160, oy = cy - 136, oL = Math.hypot(ox, oy), mx = cx + ox / oL * 30, my = cy + oy / oL * 22;
+        s += '<line x1="' + x1 + '" y1="' + y1 + '" x2="' + x2 + '" y2="' + y2 + '" stroke="' + e[2] + '" stroke-width="3" marker-end="url(#elA-' + e[0] + ')"/>';
+        s += '<text x="' + mx + '" y="' + (my + 4) + '" text-anchor="middle" font-size="13" font-weight="700" fill="' + e[2] + '">ชนะ ×1.5</text>';
+      });
+      EL.forEach(function (e) {
+        var p = P[e[0]];
+        s += '<g transform="translate(' + p[0] + ',' + p[1] + ')"><circle r="32" fill="rgba(0,0,0,.45)" stroke="' + e[2] + '" stroke-width="2.5"/>' +
+          '<g transform="translate(0,-9) scale(.85)" style="color:' + e[2] + '">' + GLYPH[e[0]] + '</g><text y="21" text-anchor="middle" font-size="13" font-weight="700" fill="#f1e6cf">' + e[1] + '</text></g>';
+      });
+      return '<svg class="el-wheel" viewBox="0 0 320 272" role="img" aria-label="วงล้อธาตุ: ไฟชนะลม ลมชนะดิน ดินชนะน้ำ น้ำชนะไฟ">' + s + '</svg>';
+    }
+    function table() {
+      var h = '<div class="el-tw"><table class="el-tab"><caption>ดาเมจสกิลธาตุ (แถว) ใส่มอนธาตุ (คอลัมน์)</caption><thead><tr><th scope="col">สกิล \\ มอน</th>';
+      EL.forEach(function (e) { h += '<th scope="col" style="color:' + e[2] + '">' + e[1] + '</th>'; });
+      h += '</tr></thead><tbody>';
+      EL.forEach(function (a) {
+        h += '<tr><th scope="row" style="color:' + a[2] + '">' + a[1] + '</th>';
+        EL.forEach(function (d) {
+          var c = ELEM_BEATS[a[0]] === d[0] ? ['up', '×1.5'] : ELEM_BEATS[d[0]] === a[0] ? ['dn', '×0.7'] : ['', '×1'];
+          h += '<td class="' + c[0] + '">' + c[1] + '</td>';
+        });
+        h += '</tr>';
+      });
+      return h + '</tbody></table></div>';
+    }
+    function notes() {
+      var st = EL.map(function (e) { var D = ST_DEF[e[0]]; return '<li><b style="color:' + e[2] + '">' + e[1] + '</b> · ' + D.name + ' ' + { burn: 'เสีย HP ต่อเนื่อง', wet: 'ความแม่นยำลดลง', cut: 'การหลบหลีกลดลง', stun: 'ขยับไม่ได้ครู่หนึ่ง' }[D.k] + '</li>'; }).join('');
+      return '<ul class="el-notes">' +
+        '<li>สกิลธาตุที่ <b class="up">ชนะ</b> ธาตุของมอน แรงขึ้น ×1.5 · ถ้า <b class="dn">แพ้</b> เหลือ ×0.7 · ธาตุเดียวกันหรือไม่เกี่ยวกัน ×1</li>' +
+        '<li>สกิลสองธาตุ (เช่น พายุเพลิง ไฟ+ลม) คิดทั้งสองธาตุคูณกัน</li>' +
+        '<li>ธาตุของมอนดูได้จากไอคอนหลังเลเวลบนป้ายชื่อ · มอนหนองน้ำส่วนใหญ่เป็นธาตุน้ำ ใช้สกิลดินจะแรงที่สุด</li>' +
+        '<li>มอนต้านทานอาการผิดปกติจากธาตุเดียวกับตัวเอง และธาตุที่มันชนะ</li></ul>' +
+        '<div class="el-sub">อาการผิดปกติของแต่ละธาตุ</div><ul class="el-notes">' + st + '</ul>';
+    }
+    var html = wheel() + table() + notes();
+    var b = $('elBody'); if (b) b.innerHTML = html;
+    function open() { var w = $('winElem'); if (w.hidden) { w.hidden = false; bringFront(w); } else hideWin('winElem'); }
+    window.__elemOpen = open;
+    ['elBtn', 'elBtn2'].forEach(function (id) { var x = $(id); if (x) x.addEventListener('click', function (e) { open(); if (e.detail > 0) x.blur(); }); });
+  })();
   [].forEach.call(document.querySelectorAll('.shop-card'), makeDrag);
   [].forEach.call(document.querySelectorAll('.win [data-close]'), function (b) { b.addEventListener('click', function () { hideWin(b.closest('.win').id); }); });
   $('mmBig').addEventListener('click', function (e) { if ($('winMap').hidden) openWorldMap(); else hideWin('winMap'); if (e.detail > 0) e.currentTarget.blur(); });
