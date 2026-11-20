@@ -25916,7 +25916,11 @@ function createHydra(scale){
       return fetch(NB_URL, { signal: ctrl.signal }).then(function (r) { return r.json(); }).then(function (j) { S.on = !!(j && j.ok); }).catch(function () { S.on = false; })
         .finally(function () { clearTimeout(t); S.checked = true; }).then(function () { return S.on; });
     }
-    function bundle() { var b = { v: 1, slots: {} }; for (var n = 1; n <= SLOT_N; n++) { var d = readSlot(n); if (d) b.slots[n] = d; } return b; }
+    // each browser gets its own tag, stamped into every save it sends: a newer server save carrying our own tag
+    // is just our last save that went up while the page was closing (no answer came back), not another device
+    function devId() { var d = ls('nb-dev'); if (!d) { d = Date.now().toString(36) + Math.random().toString(36).slice(2, 8); ls('nb-dev', d); } return d; }
+    function mine(raw) { try { var b = JSON.parse(raw || 'null'); return !!(b && b.dev && b.dev === devId()); } catch (e) { return false; } }
+    function bundle() { var b = { v: 1, dev: devId(), slots: {} }; for (var n = 1; n <= SLOT_N; n++) { var d = readSlot(n); if (d) b.slots[n] = d; } return b; }
     function apply(raw, at) {
       var b = null; try { b = JSON.parse(raw || 'null'); } catch (e) {}
       if (b && b.slots && typeof b.slots === 'object') for (var n = 1; n <= SLOT_N; n++) { var d = b.slots[n]; if (d && typeof d === 'object') ls(slotKey(n), JSON.stringify(d)); else ls(slotKey(n), null); }
@@ -25929,6 +25933,7 @@ function createHydra(scale){
       var body = { action: 'save', id: id(), key: key(), data: JSON.stringify(bundle()), base: force ? 0 : base() };
       return call(body).then(function (r) {
         if (r && r.ok) { ls('nb-base', r.updatedAt); ls('nb-dirty', '0'); return true; }
+        if (r && r.err === 'stale' && mine(r.data)) { S.pushing = false; return push(true); }
         if (r && r.err === 'stale') { S.conflict = r; if (typeof notify === 'function' && !LOBBY) notify('ID นี้มีเซฟใหม่กว่าจากอีกเครื่อง · กลับหน้าเลือกตัวละครเพื่อเลือกว่าจะใช้เซฟไหน'); }
         return false;
       }).catch(function () { return false; }).finally(function () { S.pushing = false; });
@@ -26007,7 +26012,7 @@ function createHydra(scale){
         if (!id()) { if (ls('nb-offline') === '1') return slotsView(); return accountView(card, slotsView); }
         call({ action: 'login', id: id(), key: key() }).then(function (r) {
           if (!r || !r.ok) { if (r && (r.err === 'bad_login' || r.err === 'not_found')) { ls('nb-id', null); ls('nb-key', null); return accountView(card, slotsView); } return slotsView(); }
-          if (+r.updatedAt > base()) { if (isDirty()) { S.conflict = r; return conflictView(card, slotsView); } apply(r.data, r.updatedAt); }
+          if (+r.updatedAt > base()) { if (isDirty() && mine(r.data)) { push(true); } else if (isDirty()) { S.conflict = r; return conflictView(card, slotsView); } else apply(r.data, r.updatedAt); }
           else if (isDirty()) push();
           slotsView();
         }, function () { slotsView(); });
