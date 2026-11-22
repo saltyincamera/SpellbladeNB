@@ -28240,18 +28240,18 @@ function createHydra(scale){
         hit(true); skRocks(tg, '#9a8a7a', 8); shake(300, .16);
       } },
     // แทงจุดตาย: a still, low stance; three red weak points glow, phantom spears gather around the enemy, and all strike together with the real thrust
-    t2_s_pierce: { ms: 1400, hits: [.74],
+    t2_s_pierce: { ms: 770, hits: [.46],   // the aim snaps into place and the thrust lands at ~0.35 s (it used to hold the aim for ~1 s)
       pose: function (p, P) {
-        P.rA = K(p, [[0, -.25], [.2, -1.1], [.66, -1.1], [.74, -1.6], [.9, -1.55], [1, -.25]]); P.rAz = K(p, [[0, 0], [.2, .6], [.66, .6], [.74, .15], [1, 0]]);
-        P.lA = K(p, [[0, 0], [.2, -1.45], [.74, -1.55], [1, 0]]); P.wX = K(p, [[0, -1.5], [.2, -.25], [.9, -.25], [1, -1.5]]);
-        P.bJ = K(p, [[0, 0], [.2, -.32], [.66, -.32], [.74, -.2], [.9, -.18], [1, 0]]); P.bY = K(p, [[0, 0], [.2, .5], [.66, .5], [.74, -.2], [1, 0]]); P.bZ = K(p, [[0, 0], [.2, -.25], [.66, -.25], [.74, .5], [.9, .45], [1, 0]]);
-        P.rZ = K(p, [[0, 0], [.68, 0], [.74, .5], [.9, .5], [1, 0]]);
-        P.rL = K(p, [[0, 0], [.2, .55], [.66, .55], [.74, -.7], [.92, -.7], [1, 0]]); P.lL = K(p, [[0, 0], [.2, -.6], [.66, -.6], [.74, .55], [.92, .55], [1, 0]]);
+        P.rA = K(p, [[0, -.25], [.2, -1.1], [.38, -1.1], [.46, -1.6], [.9, -1.55], [1, -.25]]); P.rAz = K(p, [[0, 0], [.2, .6], [.38, .6], [.46, .15], [1, 0]]);
+        P.lA = K(p, [[0, 0], [.2, -1.45], [.46, -1.55], [1, 0]]); P.wX = K(p, [[0, -1.5], [.2, -.25], [.9, -.25], [1, -1.5]]);
+        P.bJ = K(p, [[0, 0], [.2, -.32], [.38, -.32], [.46, -.2], [.9, -.18], [1, 0]]); P.bY = K(p, [[0, 0], [.2, .5], [.38, .5], [.46, -.2], [1, 0]]); P.bZ = K(p, [[0, 0], [.2, -.25], [.38, -.25], [.46, .5], [.9, .45], [1, 0]]);
+        P.rZ = K(p, [[0, 0], [.40, 0], [.46, .5], [.9, .5], [1, 0]]);
+        P.rL = K(p, [[0, 0], [.2, .55], [.38, .55], [.46, -.7], [.92, -.7], [1, 0]]); P.lL = K(p, [[0, 0], [.2, -.6], [.38, -.6], [.46, .55], [.92, .55], [1, 0]]);
       },
       start: function (ch, col) {
         if (!player.lock) return; var tg = player.lock;
-        skT(function () { skReticle(tg, '#ff3a3a', 650); [[-.25, .25], [.22, .05], [0, -.3]].forEach(function (o) { var m = new THREE.Mesh(new THREE.CircleGeometry(.09, 12), basicMat('#ff2a2a', .95)); skFx(m, 700, function (e, p) { m.position.set(tg.x, tgY(tg), tg.z); m.lookAt(camera.position); m.translateX(o[0]); m.translateY(o[1]); m.translateZ(.3); m.scale.setScalar(1 + Math.sin(p * 24) * .3); }); }); }, 250);
-        [0, 2.1, 4.2].forEach(function (a) { skPhantomLance(tg, player.face + Math.PI + a + .5, '#ff6a5a', 420, 600); });
+        skT(function () { skReticle(tg, '#ff3a3a', 500); [[-.25, .25], [.22, .05], [0, -.3]].forEach(function (o) { var m = new THREE.Mesh(new THREE.CircleGeometry(.09, 12), basicMat('#ff2a2a', .95)); skFx(m, 700, function (e, p) { m.position.set(tg.x, tgY(tg), tg.z); m.lookAt(camera.position); m.translateX(o[0]); m.translateY(o[1]); m.translateZ(.3); m.scale.setScalar(1 + Math.sin(p * 24) * .3); }); }); }, 170);
+        [0, 2.1, 4.2].forEach(function (a) { skPhantomLance(tg, player.face + Math.PI + a + .5, '#ff6a5a', 290, 600); });
       },
       strike: function (tg, i, hit, col) { skLance(player, '#ffd0c8', 2.8, 200); hit(true); skStarBurst(tg, '#ff3a3a'); fxRing(tg.x, tgY(tg), tg.z, '#ff6a5a', 3.6, 380); skExplode(tg, '#ff3a3a', 1.2); } },
     // พุ่งแทงสายฟ้า: the spear is raised and lightning strikes it from the sky; the hero becomes a streak of lightning, runs the enemy through and a second bolt falls on it
