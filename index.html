@@ -28786,7 +28786,7 @@ function createHydra(scale){
       start: function (ch, col) {
         var sx = player.x, sz = player.z, fc = player.face, tg = player.lock;
         skCircle(ch, '#ff3a4a', 700, 1.0); skBladeGlow(ch, '#ffffff', 650);
-        setTimeout(function () {          // the draw: one line of light along the dash
+        skT(function () {          // the draw: one line of light along the dash
           var d = tg ? Math.hypot(tg.x - sx, tg.z - sz) + 1.1 : 2.5, y = heightAt(sx, sz) + 1.05;
           var ln = new THREE.Mesh(new THREE.BoxGeometry(.06, .06, d), basicMat('#ffffff', 1)), gl = new THREE.Mesh(new THREE.BoxGeometry(.3, .3, d), basicMat('#ff3a4a', .45));
           [ln, gl].forEach(function (m) { m.position.set(sx + Math.sin(fc) * d / 2, y, sz + Math.cos(fc) * d / 2); m.rotation.y = fc; });
@@ -29686,7 +29686,18 @@ function createHydra(scale){
       start: function (ch) { skAwaken(ch, '#ffd24a'); eyeAt(ch, 1600, 3.8, 2.6); skSun(ch.x, heightAt(ch.x, ch.z) + 3.8, ch.z, 1500); skT(function () { skPillar(player, '#ffd24a', 800, .9); skAuraSwirl(player, '#ffd24a', 900, 3); }, 350); skT(function () { skShock(player, '#ffd24a', 3); fxSparks(player.x, heightAt(player.x, player.z) + 3.8, player.z, '#fff6c0', 24); skFlash('#fff6d0', 260); }, 700); } };
   })();
   var o_els = null;
+  // skills whose first hit came too late (1-1.3 s) are played faster as a whole: pose, hits and effects keep their order, the first hit lands
+  // at ~0.45 s for tier 2 and ~0.65 s for tiers 3-4. Damage, cost and cooldown are unchanged.
+  var SKILL_SPEED = (function () { var o = {}, A = SKILL_ANIM;
+    function fit(id, want) { var a = A[id]; if (!a || !a.hits || !a.hits.length) return; var first = a.hits[0] * a.ms; if (first > want) o[id] = want / first; }
+    ['t2_stone_spike', 't2_p_scatter', 't2_power_slash', 't2_f_stone', 't2_f_flame', 't2_s_charge', 't2_s_thrust'].forEach(function (id) { fit(id, 450); });
+    ['death_arrow', 's_meteor', 'god_slash', 'p_colossus', 'lava', 'steam', 'earth_breaker', 'eternal_arrow', 'sky_arrow', 'f_quake', 'f_magma', 'rift_arrow', 'blood_sunder', 's_heaven'].forEach(function (k) { fit('t3_' + k, 650); fit('t4_' + k, 650); });
+    return o; })();
   function doSkill(id, free, lvOver) {
+    SK_TS = !free && SKILL_ANIM[id] && SKILL_SPEED[id] || 1;
+    try { return doSkill0(id, free, lvOver); } finally { SK_TS = 1; }
+  }
+  function doSkill0(id, free, lvOver) {
     if (!free) player.skApproach = false;
     var sk = SKILLS[id], lv = lvOver || skLv(id), y = heightAt(player.x, player.z), col = skColor(sk);
     if (!free) {
@@ -29696,6 +29707,7 @@ function createHydra(scale){
       if (sk.effect !== 'buff' && sk.effect !== 'heal' && sk.effect !== 'convert') { player.atk = 0; player.atkStage = 'skill'; player.fired = player.weapon.hits.map(function () { return true; }); player.skAnim = null; }
     }
     var AN = !free && SKILL_ANIM[id];
+    if (AN && SK_TS !== 1) AN = Object.assign({}, AN, { ms: AN.ms * SK_TS, baseMs: AN.ms });
     if (AN && AN.kick && player.weapon && player.weapon.id === 'boots') AN = Object.assign({}, AN, AN.kick);
     if (AN) {
       if (!AN.self || player.atk < 0) { player.atk = 0; player.atkStage = 'skill'; player.fired = player.weapon.hits.map(function () { return true; }); player.skAnim = AN; }
@@ -29717,7 +29729,7 @@ function createHydra(scale){
     var mul = sk.mult(lv) * skLineK(sk) * (1 + skU(id, 'dmg')), gap = n > 5 ? 85 : n > 2 ? 120 : 170, lead = sk.type === 'magic' ? 60 : 160;
     if (AN && AN.strike) {
       var hitFn = function (big) { if (tg.dead) return; hitDummy(tg, player, mul, 'skill', o); skImpact(tg, col, big || skTier(sk) >= 3, skEl(sk)); skSplash(sk, tg, mul, o); };
-      for (var i2 = 0; i2 < n; i2++) (function (i) { var at = AN.hits[Math.min(i, AN.hits.length - 1)] * AN.ms + Math.max(0, i - AN.hits.length + 1) * 140; skAfter(at, function () { if (tg.dead) return; var dx = tg.x - player.x, dz = tg.z - player.z; if (dx || dz) player.face = Math.atan2(dx, dz); AN.strike(tg, i, hitFn, col); }); })(i2);
+      for (var i2 = 0; i2 < n; i2++) (function (i) { var at = AN.hits[Math.min(i, AN.hits.length - 1)] * (AN.baseMs || AN.ms) + Math.max(0, i - AN.hits.length + 1) * 140; skAfter(at, function () { if (tg.dead) return; var dx = tg.x - player.x, dz = tg.z - player.z; if (dx || dz) player.face = Math.atan2(dx, dz); AN.strike(tg, i, hitFn, col); }); })(i2);
     } else
     for (var i = 0; i < n; i++) (function (i) { skAfter(lead + i * gap, function () { skStrike(sk, tg, mul, o, i, n); }); })(i);
     o.mul = mul;
@@ -29764,7 +29776,8 @@ function createHydra(scale){
     var m = new THREE.Mesh(new THREE.CylinderGeometry(.75, .9, 2.4, 18, 1, true), basicMat(col, .35)); m.position.set(player.x, y + 1.2, player.z);
     addFx(m, 650, function (e, p) { m.position.set(player.x, heightAt(player.x, player.z) + 1.2 + p * .4, player.z); m.material.opacity = .35 * (1 - p); m.scale.set(1 + p * .3, 1, 1 + p * .3); });
   }
-  function skAfter(ms, fn) { skQ.push({ t: ms, fn: fn }); }
+  var SK_TS = 1;   // time scale while a skill is being set up; callbacks keep the scale they were made with, so a sped-up skill stays in step
+  function skAfter(ms, fn) { var ts = SK_TS; skQ.push({ t: ms * ts, fn: ts === 1 ? fn : function () { var k = SK_TS; SK_TS = ts; try { fn(); } finally { SK_TS = k; } } }); }
 
   // ---------- strikes and effects ----------
   function tgY(d) { return heightAt(d.x, d.z) + (d.monster ? Math.min(1.6, d.a.h * d.T.scale * .55) : 1.15); }
